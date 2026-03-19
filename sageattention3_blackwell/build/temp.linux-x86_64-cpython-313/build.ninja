@@ -1,0 +1,37 @@
+ninja_required_version = 1.3
+cxx = c++
+nvcc = /usr/local/cuda-13.1/bin/nvcc
+
+cflags = -pthread -B /home/xtzhao/miniconda3/envs/sage/share/python_compiler_compat -fno-strict-overflow -Wsign-compare -DNDEBUG -O2 -Wall -fPIC -O2 -isystem /home/xtzhao/miniconda3/envs/sage/include -fPIC -O2 -isystem /home/xtzhao/miniconda3/envs/sage/include -fPIC -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/sageattn3 -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/csrc/cutlass/include -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/csrc/cutlass/tools/util/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/include/python3.13 -c
+post_cflags = -O3 -std=c++17 -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=fp4attn_cuda_bypass
+cuda_cflags = -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/sageattn3 -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/csrc/cutlass/include -I/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/csrc/cutlass/tools/util/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include -I/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/torch/include/torch/csrc/api/include -I/usr/local/cuda-13.1/include -I/home/xtzhao/miniconda3/envs/sage/include/python3.13 -c
+cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -O3 -std=c++17 -U__CUDA_NO_HALF_OPERATORS__ -U__CUDA_NO_HALF_CONVERSIONS__ -U__CUDA_NO_BFLOAT16_OPERATORS__ -U__CUDA_NO_BFLOAT16_CONVERSIONS__ -U__CUDA_NO_BFLOAT162_OPERATORS__ -U__CUDA_NO_BFLOAT162_CONVERSIONS__ --expt-relaxed-constexpr --expt-extended-lambda --use_fast_math --ptxas-options=--verbose,--warn-on-local-memory-usage -lineinfo -DCUTLASS_DEBUG_TRACE_LEVEL=0 -DNDEBUG -DQBLKSIZE=128 -DKBLKSIZE=128 -DCTA256 -DDQINRMEM -DEXECMODE=0 -DSAGEATTN3_SOFTMAX_BYPASS -gencode arch=compute_120a,code=sm_120a --threads 4 -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=fp4attn_cuda_bypass
+cuda_dlink_post_cflags = 
+sycl_dlink_post_cflags = 
+ldflags = 
+
+rule compile
+  command = $cxx -MMD -MF $out.d $cflags -c $in -o $out $post_cflags
+  depfile = $out.d
+  deps = gcc
+
+rule cuda_compile
+  depfile = $out.d
+  deps = gcc
+  command = $nvcc --generate-dependencies-with-compile --dependency-output $out.d $cuda_cflags -c $in -o $out $cuda_post_cflags
+
+
+
+
+
+
+
+build /home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell/api.o: cuda_compile /home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/sageattn3/blackwell/api.cu
+
+
+
+
+
+
+
+

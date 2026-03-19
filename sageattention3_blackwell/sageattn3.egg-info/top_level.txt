@@ -1,0 +1,4 @@
+fp4attn_cuda
+fp4attn_cuda_bypass
+fp4quant_cuda
+sageattn3

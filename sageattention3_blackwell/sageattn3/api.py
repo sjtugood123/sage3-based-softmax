@@ -89,6 +89,10 @@ def preprocess_qkv(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, per_block_
     else:
         qm = q.mean(dim=-2, keepdim=True)
         q = q - qm
+    # print(f"qm shape: {qm.shape}")
+    # print(f"q shape: {q.shape}")
+    # print(f"k shape: {k.shape}")
+    # print(f"v shape: {v.shape}")
     delta_s = torch.matmul(qm, k.transpose(-2, -1)).to(torch.float32).contiguous()
     return q, k, v, delta_s
 

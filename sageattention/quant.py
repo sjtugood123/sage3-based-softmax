@@ -17,7 +17,7 @@ limitations under the License.
 import torch
 from typing import Any, List, Literal, Optional, Tuple, Union
 
-from . import _fused
+# from . import _fused
 
 def per_block_int8(
     q: torch.Tensor, 

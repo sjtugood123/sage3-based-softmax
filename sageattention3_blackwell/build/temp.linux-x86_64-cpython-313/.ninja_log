@@ -1,7 +1,0 @@
-# ninja log v7
-0	81824	1773827702619841375	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell/api.o	b27d1ca74d96ec6e
-2	24854	1773827784798838759	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/quantization/fp4_quantization_4d.o	a637dad73166a110
-17	76986	1773901919312628643	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell/api.o	d3cc857adb6814de
-6	23126	1773901996809711670	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/quantization/fp4_quantization_4d.o	7650fe90ad108f47
-13	76360	1773902162888458400	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell/api.o	d3cc857adb6814de
-8	72830	1773902239693724774	/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell/api.o	dad965a1f1af2387

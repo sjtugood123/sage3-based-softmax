@@ -708,8 +708,11 @@ struct CollectiveMainloopFwd {
         pipeline_q.consumer_release(smem_pipe_read_q);
         ++smem_pipe_read_q;
 
+        //相当于mma中的C矩阵
         Tensor tSrS = partition_fragment_C(tiled_mma_qk, select<0, 1>(TileShape_MNK{}));
         Tensor tSrS_converion_view = make_tensor(tSrS.data(), flash::convert_to_conversion_layout(tSrS.layout()));
+        // tSrS_converion_view.layout()的第一维是8，max在第一维的索引置零，于是这一维是1，相当于8个元素1个max
+        // AbsMaxP:(AtomN/8=1, (AtomM, MmaN_divided, MmaM), _2)?
         Tensor AbsMaxP = make_tensor_like<float>(
             make_layout(shape(group<1, 4>(flatten(tSrS_converion_view.layout()(make_coord(_0{}, _), _, _)))))
         );
@@ -747,6 +750,12 @@ struct CollectiveMainloopFwd {
                 }
             }
         }
+        //!!!
+        // _ 在 CuTe 中代表“选定该维度的全部”。相当于 Python 中的 :
+        // make_coord(_, _, mma_k)是一个多级索引。
+        // 表示前两个维度全选，但要第三个维度（通常是 K 维的分块索引）的第 mma_k 个。
+        // tile是逻辑上的qk大块，但是大块里面还要分成更小的塞给tc core做乘法，所以mma_k就是更小的块的索引。每次循环处理一个更小的块。
+        // AbsMaxP_stagek是把第mma_k个block的数据取出来
         auto quantize = [&](auto mma_k, auto acc_conversion_view) {
             Tensor AbsMaxP_stagek = AbsMaxP(_, make_coord(_, _, mma_k));
             Tensor acc_conversion_stagek = acc_conversion_view(_, _, mma_k);
@@ -800,6 +809,7 @@ struct CollectiveMainloopFwd {
 
         consumer_wait(pipeline_v, smem_pipe_read_v);
         copy_v_block(_0{});
+        //!!
         quantize(_0{}, tSrS_converion_view);
         CUTLASS_PRAGMA_UNROLL
         for (int v_block = 0; v_block < size<2>(tOrP); ++v_block) {
@@ -807,6 +817,7 @@ struct CollectiveMainloopFwd {
                                     make_zip_tensor(tOrVt(_, _, v_block), tOrSFVt(_, _, v_block)), tOrO_store);
             if (v_block < size<2>(tOrP) - 1) {
                 copy_v_block(v_block + 1);
+                //!!
                 quantize(v_block + 1, tSrS_converion_view);
             } else {
                 pipeline_v.consumer_release(smem_pipe_read_v);

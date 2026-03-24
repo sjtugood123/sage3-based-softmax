@@ -116,6 +116,20 @@ if not SKIP_CUDA_BUILD:
 
     ext_modules.append(
         CUDAExtension(
+            name="fp4attn_cuda_bypass",
+            sources=["sageattn3/blackwell/api.cu"],
+            extra_compile_args={
+                "cxx": ["-O3", "-std=c++17"],
+                "nvcc": append_nvcc_threads(
+                    nvcc_flags + ["-DEXECMODE=0", "-DSAGEATTN3_SOFTMAX_BYPASS"] + cc_flag
+                ),
+            },
+            include_dirs=include_dirs,
+            libraries=["cuda"]
+        )
+    )
+    ext_modules.append(
+        CUDAExtension(
             name="fp4attn_cuda",
             sources=["sageattn3/blackwell/api.cu"],
             extra_compile_args={
@@ -144,20 +158,7 @@ if not SKIP_CUDA_BUILD:
             libraries=["cuda"]
         )
     )
-    ext_modules.append(
-        CUDAExtension(
-            name="fp4attn_cuda_bypass",
-            sources=["sageattn3/blackwell/api.cu"],
-            extra_compile_args={
-                "cxx": ["-O3", "-std=c++17"],
-                "nvcc": append_nvcc_threads(
-                    nvcc_flags + ["-DEXECMODE=0", "-DSAGEATTN3_SOFTMAX_BYPASS"] + cc_flag
-                ),
-            },
-            include_dirs=include_dirs,
-            libraries=["cuda"]
-        )
-    )
+    
 
 
 

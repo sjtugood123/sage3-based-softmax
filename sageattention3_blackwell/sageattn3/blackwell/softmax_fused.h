@@ -72,12 +72,10 @@ struct SoftmaxFused{
 /*
 acc_conversion_view:
 (( (2, 4), (2, 2) ), 1, 2)
-
+acc_conversion_flatten:
 ((2, 4), (2, 2, 1, 2))
 */
 
-        Tensor maxtest = make_tensor(AbsMaxP.data(), AbsMaxP.layout());
-        Tensor acctest = make_tensor(acc.data(), acc.layout());
         // 这三个是同一块寄存器，只是视图不同
         Tensor acc_reduction_view = make_tensor(acc.data(), flash::convert_to_reduction_layout(acc.layout()));
         Tensor acc_conversion_view = make_tensor(acc.data(), flash::convert_to_conversion_layout(acc.layout()));
@@ -97,7 +95,7 @@ acc_conversion_view:
         return;
 #endif
         if constexpr (FirstTile) {
-#if 1
+#if 0
         using AccConvFlat = decltype(acctest);
         using AccConvLayout = typename AccConvFlat::layout_type;
         using AccConvShape = typename AccConvLayout::shape_type;

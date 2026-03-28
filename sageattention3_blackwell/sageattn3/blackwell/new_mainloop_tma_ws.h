@@ -608,7 +608,7 @@ struct CollectiveMainloopFwd {
         auto thread_mma_qk = tiled_mma_qk.get_thread_slice(thread_idx);
         auto thread_mma_pv = tiled_mma_pv.get_thread_slice(thread_idx);
 
-        Tensor tSrQ = thread_mma_qk.partition_fragment_A(sQ);//原来这样可以全自动取数据
+        Tensor tSrQ = thread_mma_qk.partition_fragment_A(sQ);
         Tensor tSrK = thread_mma_qk.partition_fragment_B(sK(_,_,Int<0>{}));
         Tensor tOrVt = thread_mma_pv.partition_fragment_B(sVt(_,_,Int<0>{}));
         Tensor tOrP = make_tensor_like<Element>(LayoutP{});
@@ -711,7 +711,8 @@ struct CollectiveMainloopFwd {
         //相当于mma中的C矩阵
         Tensor tSrS = partition_fragment_C(tiled_mma_qk, select<0, 1>(TileShape_MNK{}));
         Tensor tSrS_converion_view = make_tensor(tSrS.data(), flash::convert_to_conversion_layout(tSrS.layout()));
-        // tSrS_converion_view.layout:(( (2, 4), (2, 2) ), 1, 2),的第一维是8，max在第一维的索引置零，于是这一维是1，相当于8个元素1个max
+        // (不确定)tSrS_converion_view.layout()的第一维是8，max在第一维的索引置零，于是这一维是1，相当于8个元素1个max
+        // AbsMaxP:(AtomN/8=1, (AtomM, MmaN_divided, MmaM), _2)?
         Tensor AbsMaxP = make_tensor_like<float>(
             make_layout(shape(group<1, 4>(flatten(tSrS_converion_view.layout()(make_coord(_0{}, _), _, _)))))
         );
@@ -720,8 +721,6 @@ struct CollectiveMainloopFwd {
         add_delta_s(tSrS);
         CUTLASS_PRAGMA_UNROLL
         for (int k_block = 0; k_block < size<2>(tSrQ); ++k_block) {
-            //make_zip_tensor：这会将两个张量捆绑在一起。在这段代码中，它将tSrQ与其tSrSFQ绑定在一起。
-            // 这告诉 GEMM 指令使用块缩放（block-scaled）矩阵乘法。
             cute::gemm(tiled_mma_qk, make_zip_tensor(tSrQ(_, _, k_block), tSrSFQ(_, _, k_block)), 
                                     make_zip_tensor(tSrK(_, _, k_block), tSrSFK(_, _, k_block)), tSrS);
             if (k_block < size<2>(tSrQ) - 1) {
@@ -759,7 +758,6 @@ struct CollectiveMainloopFwd {
         // AbsMaxP_stagek是把第mma_k个block的数据取出来
         auto quantize = [&](auto mma_k, auto acc_conversion_view) {
             Tensor AbsMaxP_stagek = AbsMaxP(_, make_coord(_, _, mma_k));
-            // (( (2, 4), (2, 2) ), 1, 2)->(( (2, 4), (2, 2) ), 1)最后一维直接被切掉了
             Tensor acc_conversion_stagek = acc_conversion_view(_, _, mma_k);
             Tensor SFP = make_tensor_like<cutlass::float_ue4m3_t>(AbsMaxP_stagek.layout());
             Tensor SFP_uint32_view = recast<uint32_t>(SFP);
@@ -774,24 +772,7 @@ struct CollectiveMainloopFwd {
                     tmp
                 );
             }
-            // 当前线程在Quad中的 ID (0, 1, 2, 3)
             int const quad_id = threadIdx.x & 3;
-
-            /*
-            [Byte 3 | Byte 2 | Byte 1 | Byte 0]
-
-            对于线程0和2，MASK是0x00FF00FF，意味着保留 Byte 0 和 Byte 2，抹掉 Byte 1 和 Byte 3。
-            (local_sfp & MASK)：留下自己算出来的 Byte 0 和 Byte 2。
-            (peer_sfp & MASK) << 8：拿到对方（比如线程 0 拿到线程 2）算出来的 Byte 0 和 Byte 2，并向左推 8 位，塞进 Byte 1 和 Byte 3 的位置。
-            最终结果：寄存器变成了 [线程2的Byte2 | 自己(线程0)的Byte2 | 线程2的Byte0 | 自己(线程0)的Byte0]
-
-            对于线程 1 和3,MASK 算出来是 0xFF00FF00。意味着保留 Byte 1 和 Byte 3。
-            (local_sfp & MASK) >> 8：把自己的 Byte 1 和 3 向右推 8 位，塞进 Byte 0 和 Byte 2 的位置。
-            (peer_sfp & MASK)：保留对方（比如线程 1 拿到线程 3）的 Byte 1 和 Byte 3。
-            最终结果：寄存器变成了 [对方(线程3)的B3 | 自己(线程1)的B3 | 对方(线程3)的B1 | 自己(线程1)的B1]。
-
-            但是为什么要这么做还不清楚，而且要搞清楚
-            */
             uint32_t MASK = (0xFF00FF) << ((quad_id & 1) * 8);
             Tensor tOrSFP_uint32_view = recast<uint32_t>(tOrSFP(_, _, mma_k));
             Tensor tOrP_uint32_view = recast<uint32_t>(tOrP(_, _, mma_k));
@@ -847,7 +828,6 @@ struct CollectiveMainloopFwd {
         n_block--;
         constexpr int n_masking_steps = !Is_causal ? 1 : cute::ceil_div(kBlockM, kBlockN) + 1;
         // // Only go through these if Is_causal, since n_masking_steps = 1 when !Is_causal
-        // 现在的调用不走这一段
         CUTLASS_PRAGMA_UNROLL
         for (int masking_step = 0; masking_step < n_masking_steps - 1 && n_block >= 0; ++masking_step, --n_block) {
             Tensor tSrS = partition_fragment_C(tiled_mma_qk, select<0, 1>(TileShape_MNK{}));
@@ -892,27 +872,14 @@ struct CollectiveMainloopFwd {
             if (masking_step > 0) { softmax_fused.rescale_o(tOrO_store, tOrO); }
         }
 
-        //跳过上面走这里
-        //int n_block_max = cute::ceil_div(seqlen_k, kBlockN);
         #pragma unroll 1
         for (; n_block >= 0; --n_block) {
-            // t + GEMM阶段 + 内存层级(r s g) + 矩阵名
-            // tSrS第一个S说明是属于S=qk阶段，第二个S说明是矩阵名
-            // tOrP第一个O说明是属于O=pv阶段，第二个P说明是矩阵名
-
-            // 所以是每一轮L维度上的遍历都是一个独立的tSrS
             Tensor tSrS = partition_fragment_C(tiled_mma_qk, select<0, 1>(TileShape_MNK{}));
             Tensor tSrS_converion_view = make_tensor(tSrS.data(), flash::convert_to_conversion_layout(tSrS.layout()));
             consumer_wait(pipeline_k, smem_pipe_read_k);
             copy_k_block(_0{});
             add_delta_s(tSrS);
             CUTLASS_PRAGMA_UNROLL
-            /*
-            K^T:[B,H,D,L]在当前block里只处理[D,L]
-            n_block遍历的是L,Q一次加载好留在寄存器里,每轮加载K[D,n_block]
-            但是D=128还是太大，k_block就是沿着这个遍历
-            内层每轮加载K[k_block,n_block]
-            */
             for (int k_block = 0; k_block < size<2>(tSrQ); ++k_block) {
                 cute::gemm(tiled_mma_qk, make_zip_tensor(tSrQ(_, _, k_block), tSrSFQ(_, _, k_block)), 
                                     make_zip_tensor(tSrK(_, _, k_block), tSrSFK(_, _, k_block)), tSrS);

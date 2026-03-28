@@ -26,6 +26,7 @@ using cutlass::float_e2m1_t;
 using cutlass::float_ue4m3_t;
 
 // MMA.SF 16x32x64 TN E2M1 x E2M1 with SF E4M3
+// https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-block-scaling
 struct SM120_16x32x64_TN_VS_NVFP4 {
   using DRegisters = float[16];
   using ARegisters = uint32_t[4];

@@ -611,11 +611,11 @@ struct CollectiveMainloopFwd {
         Tensor tSrQ = thread_mma_qk.partition_fragment_A(sQ);//原来这样可以全自动取数据
         Tensor tSrK = thread_mma_qk.partition_fragment_B(sK(_,_,Int<0>{}));
         Tensor tOrVt = thread_mma_pv.partition_fragment_B(sVt(_,_,Int<0>{}));
-        Tensor tOrP = make_tensor_like<Element>(LayoutP{});
+        Tensor tOrP = make_tensor_like<Element>(LayoutP{});//make_shape(make_shape(_8{}, _2{}, _2{}), _1{}, Int<kBlockN / 64>{}),
         Tensor tSrSFQ = partition_fragment_SFA(sSFQ, thread_mma_qk);
         Tensor tSrSFK = partition_fragment_SFB(sSFK(_,_,Int<0>{}), thread_mma_qk);
         Tensor tOrSFVt = partition_fragment_SFB(sSFVt(_,_,Int<0>{}), thread_mma_pv);
-        Tensor tOrSFP = make_tensor<ElementSF>(LayoutSFP{});
+        Tensor tOrSFP = make_tensor<ElementSF>(LayoutSFP{});//make_shape(make_shape(_16{}, _4{}), _1{}, Int<kBlockN / 64>{}),
         Tensor tOrSFP_flt = filter_zeros(tOrSFP);
         Tensor tSrDS = make_tensor<float>(make_shape(_8{}, _4{}), make_stride(_1{}, _8{}));
         // copy qk and sf from smem to rmem
@@ -719,7 +719,7 @@ struct CollectiveMainloopFwd {
         copy_k_block(_0{});
         add_delta_s(tSrS);
         CUTLASS_PRAGMA_UNROLL
-        for (int k_block = 0; k_block < size<2>(tSrQ); ++k_block) {
+        for (int k_block = 0; k_block < size<2>(tSrQ); ++k_block) {//0，1，2，3...应该吧
             //make_zip_tensor：这会将两个张量捆绑在一起。在这段代码中，它将tSrQ与其tSrSFQ绑定在一起。
             // 这告诉 GEMM 指令使用块缩放（block-scaled）矩阵乘法。
             cute::gemm(tiled_mma_qk, make_zip_tensor(tSrQ(_, _, k_block), tSrSFQ(_, _, k_block)), 
@@ -758,6 +758,7 @@ struct CollectiveMainloopFwd {
         // tile是逻辑上的qk大块，但是大块里面还要分成更小的塞给tc core做乘法，所以mma_k就是更小的块的索引。每次循环处理一个更小的块。
         // AbsMaxP_stagek是把第mma_k个block的数据取出来
         auto quantize = [&](auto mma_k, auto acc_conversion_view) {
+            //mma_k=0,1
             Tensor AbsMaxP_stagek = AbsMaxP(_, make_coord(_, _, mma_k));
             // (( (2, 4), (2, 2) ), 1, 2)->(( (2, 4), (2, 2) ), 1)最后一维直接被切掉了
             Tensor acc_conversion_stagek = acc_conversion_view(_, _, mma_k);
@@ -823,7 +824,13 @@ struct CollectiveMainloopFwd {
                     }
             }
         };
-        //important
+        // 感觉好像不需要修改这个quantize?
+        // softmax之后的量化是对P和SFP
+        // 但我softmax里面的量化是想要量化Xi
+        // 也就是说我之前的思路实际上是通过在softmax之前加一个quant从而可以用fma代替exp
+        // 那关键就变成了fma相比exp节约了多少时间，是不是比pre quant更划算
+        // 这样我可以简单的做一个验证
+        // 而且如果可以的话我只需要在softmax里加一个pre quant，并且可以保持外部不变
         softmax_fused.template online_softmax_with_quant</*Is_first=*/true>(tSrS, AbsMaxP, mainloop_params.softmax_scale_log2);
 
         consumer_wait(pipeline_v, smem_pipe_read_v);
@@ -831,12 +838,12 @@ struct CollectiveMainloopFwd {
         //!!
         quantize(_0{}, tSrS_converion_view);
         CUTLASS_PRAGMA_UNROLL
+        // tOrP:(8,2,2),1,2
         for (int v_block = 0; v_block < size<2>(tOrP); ++v_block) {
             cute::gemm(tiled_mma_pv, make_zip_tensor(tOrP(_, _, v_block), tOrSFP(_, _, v_block)), 
                                     make_zip_tensor(tOrVt(_, _, v_block), tOrSFVt(_, _, v_block)), tOrO_store);
             if (v_block < size<2>(tOrP) - 1) {
                 copy_v_block(v_block + 1);
-                //!!
                 quantize(v_block + 1, tSrS_converion_view);
             } else {
                 pipeline_v.consumer_release(smem_pipe_read_v);

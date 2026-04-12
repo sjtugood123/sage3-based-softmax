@@ -143,6 +143,7 @@ def sageattn3_blackwell(q, k, v, attn_mask = None, is_causal = False, per_block_
     q, k, v, delta_s = preprocess_qkv(q, k, v, per_block_mean)
     qlist_from_cuda = scale_and_quant_fp4(q)
     klist_from_cuda = scale_and_quant_fp4_permute(k)
+    #O = PV行优先,量化时转置，避免了在推理（Memory bound）时的I/O开销 。
     vlist_from_cuda = scale_and_quant_fp4_transpose(v)
     o_fp4 = blockscaled_fp4_attn(
     qlist_from_cuda,
@@ -155,3 +156,25 @@ def sageattn3_blackwell(q, k, v, attn_mask = None, is_causal = False, per_block_
     is_bf16
     )[0][:, :, :QL, :].contiguous()
     return o_fp4
+
+
+"""
+/*
+我理解这K permute什么意思了，论文里的fig19.20没讲清楚，实际上论文里说的fp4和fp32的v0都是代表一个元素而不是一个寄存器
+最开始理解成寄存器了，所以一直没看懂
+m16n32k64: https://docs.nvidia.com/cuda/parallel-thread-execution/_images/mma-16864-C.png 这个重复4遍，水平排列
+/home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/sageattn3/blackwell/cute_extension.h里fma的输入输出顺序就是按照fig21的顺序来的
+d0 d1 d2 d3 d4 d5 d6 d7
+d8 d9 d10 d11 d12 d13 d14 d15
+
+这样放是和k的加载顺序一一对应的
+比如说K加载是在seq dim上[0, 1, 8, 9, 16, 17, 24, 25, 2, 3...]
+那么T0的v2v3得到的是8,9两列的结果，就是真正的P[0,2]和P[0,3]
+
+K加载顺序是前提
+fig21是方法，fma里调用mma按照这个布局来的
+结果是最终的layout像fig19一样正好完美符合下一步fp4 gemm
+
+
+*/
+"""

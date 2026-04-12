@@ -112,7 +112,7 @@ struct Flash_fwd_kernel_traits {
     using TiledMmaQK = decltype(cute::make_tiled_mma(
         cute::SM120::BLOCKSCALED::SM120_16x32x64_TN_VS_NVFP4{},
         AtomLayoutMNK{},
-        Tile<PermTileM, PermTileN, PermTileK>{}
+        Tile<PermTileM, PermTileN, PermTileK>{}//128,32,128?
       ));
     
     using TiledMmaPV = decltype(cute::make_tiled_mma(

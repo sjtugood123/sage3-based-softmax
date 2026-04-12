@@ -1,0 +1,53 @@
+/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/setuptools/_vendor/wheel/bdist_wheel.py:4: FutureWarning: The 'wheel' package is no longer the canonical location of the 'bdist_wheel' command, and will be removed in a future release. Please update to setuptools v70.1 or later which contains an integrated version of this command.
+  warn(
+/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
+!!
+
+        ********************************************************************************
+        Please consider removing the following classifiers in favor of a SPDX license expression:
+
+        License :: OSI Approved :: Apache Software License
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  self._finalize_license_expression()
+
+
+torch.__version__  = 2.10.0+cu130
+
+
+running install
+/home/xtzhao/miniconda3/envs/sage/lib/python3.13/site-packages/setuptools/_distutils/cmd.py:90: SetuptoolsDeprecationWarning: setup.py install is deprecated.
+!!
+
+        ********************************************************************************
+        Please avoid running ``setup.py`` directly.
+        Instead, use pypa/build, pypa/installer or other
+        standards-based tools.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html for details.
+        ********************************************************************************
+
+!!
+  self.initialize_options()
+running build
+running build_py
+creating build/lib.linux-x86_64-cpython-313/sageattn3
+copying sageattn3/__init__.py -> build/lib.linux-x86_64-cpython-313/sageattn3
+copying sageattn3/api.py -> build/lib.linux-x86_64-cpython-313/sageattn3
+copying sageattn3/api_bypass.py -> build/lib.linux-x86_64-cpython-313/sageattn3
+creating build/lib.linux-x86_64-cpython-313/sageattn3/quantization
+copying sageattn3/quantization/__init__.py -> build/lib.linux-x86_64-cpython-313/sageattn3/quantization
+creating build/lib.linux-x86_64-cpython-313/sageattn3/blackwell
+copying sageattn3/blackwell/__init__.py -> build/lib.linux-x86_64-cpython-313/sageattn3/blackwell
+running build_ext
+W0412 14:05:55.255000 1725529 site-packages/torch/utils/cpp_extension.py:525] The detected CUDA version (13.1) has a minor version mismatch with the version that was used to compile PyTorch (13.0). Most likely this shouldn't be a problem.
+W0412 14:05:55.255000 1725529 site-packages/torch/utils/cpp_extension.py:535] There are no g++ version bounds defined for CUDA version 13.1
+building 'fp4attn_cuda_bypass' extension
+creating /home/xtzhao/SageAttention-int4-main/sageattention3_blackwell/build/temp.linux-x86_64-cpython-313/sageattn3/blackwell
+interrupted
